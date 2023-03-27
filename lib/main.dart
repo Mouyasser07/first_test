@@ -37,6 +37,14 @@ class _HomeState extends State<Home> {
   void getxAxis() {}
 
   @override
+  void dispose(){
+    super.dispose();
+    for (final subscription in _streamSubscriptions) {
+      subscription.cancel();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(

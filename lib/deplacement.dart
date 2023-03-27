@@ -16,14 +16,19 @@ class Deplacement extends StatefulWidget {
 }
 
 class _DeplacementState extends State<Deplacement> {
+  Calibration c=Calibration(0, 0, 0);
+  double calibStateX=0;
+  double calibStateY=0;
+  double calibStateZ=0;
   late List<AccelerometerData> dataList=[];
   late List<AccelerometerData> accelDataList=[];
   late ChartSeriesController dataSerieController;
   List<StreamSubscription<dynamic>> _streamSubscriptions =
   <StreamSubscription<dynamic>>[];
-  late GyroscopeData g;
+  late GyroscopeData g=GyroscopeData(0,0,0);
 
   int counterItem=0;
+  int counterList=0;
 
   //Observation Matrix
   Array2d h=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
@@ -37,6 +42,9 @@ class _DeplacementState extends State<Deplacement> {
   Array2d ex=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
   Array2d r=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
   Array2d k=Array2d.empty();
+  Array2d bResult=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+  Array2d q_estimate_previous=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+
   //output variables
   Array2d zp=Array2d.empty();
 
@@ -58,12 +66,17 @@ class _DeplacementState extends State<Deplacement> {
 
   Array2d pitch_estimate_az=Array2d.empty();
 
+  double counterX = 0;
+  double counterY = 0;
+  double counterZ = 0;
+
+  double uPrevious=0;
+
 
 
   @override
   void initState(){
-    setGyroscopeData();
-    print(getGyroscopeData());
+    //Timer.periodic(const Duration(seconds:1), updateData);
     //setAccelerometerData();
     //dataList=getAccelerometerData();
     //Timer.periodic(const Duration(seconds: 1), updateData);
@@ -87,11 +100,14 @@ class _DeplacementState extends State<Deplacement> {
             body: Container(
                 child:Column(
                     children:<Widget>[
-                      Row(
+                      Center(
+                      child:Row(
                         children: <Widget>[
                           ElevatedButton(
                               onPressed: (){
                                 setState(()  {
+                                  dataList=[];
+                                  setAccelerometerData();
                                   //dataList= getDataList() ;
                                 });
 
@@ -101,8 +117,9 @@ class _DeplacementState extends State<Deplacement> {
                           ElevatedButton(
                               onPressed: (){
                                 setState(()  {
-                                  setAccelerometerData();
-                                  setGyroscopeData();
+                                  for (final subscription in _streamSubscriptions) {
+                                    subscription.cancel();
+                                  }
                                 });
 
                               },
@@ -111,13 +128,14 @@ class _DeplacementState extends State<Deplacement> {
                           ElevatedButton(
                               onPressed: (){
                                 setState(()  {
-
+                                  dataList=getAccelerometerData();
                                 });
 
                               },
                               child: Text("See data ")
                           ),
                         ],
+                      ),
                       ),
 
 
@@ -157,27 +175,21 @@ class _DeplacementState extends State<Deplacement> {
 ));
   }
 
-  /*void updateData(Timer timer) {
-    dataList.removeAt(0);
-    print("first element removed");
-    setAccelerometerData();
-    int length = dataList.length;
+
+  void updateData(Timer timer) {
+    print("taw");
     if (dataList.length == 9) {
+      dataList.removeAt(0);
       dataSerieController.updateDataSource(
           addedDataIndex: 9, removedDataIndex: 0);
     }
-  }*/
-
-
-  Future<List<AccelerometerData>> getDataList() async {
-      await setAccelerometerData();
-      int ll=dataList.length;
-      print("dataList length=$ll");
-      return dataList;
   }
+
+
   List<AccelerometerData> getAccelerometerData() {
     return dataList;
   }
+
   Future<void> setGyroscopeData() async {
     _streamSubscriptions.add(gyroscopeEvents.listen((GyroscopeEvent event) {
       //if(event.x!=0 || event.y!=0 || event.z!=0){
@@ -185,6 +197,7 @@ class _DeplacementState extends State<Deplacement> {
       //}
     }));
   }
+
   GyroscopeData getGyroscopeData(){
     return g;
   }
@@ -193,7 +206,6 @@ class _DeplacementState extends State<Deplacement> {
     int listCounter=0;
     DateTime lastUpdate= DateTime.fromMicrosecondsSinceEpoch(0);
 
-
     _streamSubscriptions.add(
         userAccelerometerEvents.listen((UserAccelerometerEvent event) {
           DateTime now = DateTime.now();
@@ -201,31 +213,36 @@ class _DeplacementState extends State<Deplacement> {
               .difference(lastUpdate)
               .inMilliseconds / 1000 : 0.0;
           lastUpdate = now;
-          /*if(listCounter<1000) {
-            /*accelDataList.add(
-                AccelerometerData(event.x, event.y, event.z, dt.toInt()));*/
-            Calibration c=calibrate();
+
+
+          if(listCounter<1000) {
+            calibStateX=calibStateX+event.x;
+            calibStateY=calibStateY+event.y;
+            calibStateZ=calibStateZ+event.z;
+
                 listCounter++;
-          }*/
-          //else{
-
-          if(counterItem<10){
-            kalmanFilter(event.x, event.y,event.z,dt);
-            counterItem++;
           }
-            //updateDataList(event.x,event.y,event.z,dt);
+          else{
+          calibStateX = calibStateX / 1000;
+          calibStateY = calibStateY / 1000;
+          calibStateZ = calibStateZ / 1000;
+
+          c=Calibration(calibStateX, calibStateY, calibStateZ);
+          //if(counterItem<10){
+
+            kalmanFilter(event.x, event.y,event.z,dt,c);
+            //counterItem++;
           //}
-
-
-          if(dataList.length>9){
-            _streamSubscriptions.first.cancel();
-            _streamSubscriptions.removeAt(0);
+            //updateDataList(event.x,event.y,event.z,dt);
           }
+
+
+
         })   );
 
   }
 
-   /*Calibration calibrate(){
+   Calibration calibrate(){
     //calibration state variabels
     double calibStateX=0;
     double calibStateY=0;
@@ -240,26 +257,34 @@ class _DeplacementState extends State<Deplacement> {
       calibStateZ = calibStateZ / 1000;
       print("calibration is done");
       return Calibration(calibStateX, calibStateY, calibStateZ);
-  }*/
+  }
 
-  void kalmanFilter(double x1,double x2 , double x3,double t){
+  void kalmanFilter(double x1,double x2 , double x3,double t,Calibration c){
+    //setting variabels
     //event output on X,Y and Z
     double u1=x1;
     double u2=x2;
     double u3=x3;
     //double x=0;
-    double pitch=0;
-    double roll=0;
+    double pitch=getGyroscopeData().xAxis;
+    double roll=getGyroscopeData().yAxis;
+    double u1_bias=u1-c.calibrationX;
+    double u2_bias=u1-c.calibrationY;
+    double u3_bias=u1-c.calibrationZ;
 
-    print("setting variabels");
+    u1=u1-u1_bias;
+    u2=u2-u2_bias;
+    u3=u3-u3_bias;
+
     //time delay
     double dt=t;
     //control vector
     Array2d b =Array2d([Array([dt*dt/2]) ,Array([dt]),Array([1]),Array([0]),Array([0])]);
     //State Transition Matrix
-    Array2d a=Array2d([Array([1,dt,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+    Array2d a=Array2d([Array([1,0,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
     Array2d gy=Array2d([Array([0]),Array([0]),Array([0]),Array([pitch]),Array([roll])]);
     Array2d ac=Array2d([Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
+
     if(u1<0){
       u1=-u1;
     }
@@ -269,21 +294,24 @@ class _DeplacementState extends State<Deplacement> {
     if(u3<0){
       u3=-u3;
     }
-    double u= math.sqrt(u1*u1+u2*u2+u3*u3)-9.80;
-    print("abs of negatif values");
+
+    double u= math.sqrt(u1*u1+u2*u2+u3*u3);
+
+    /*if (u<math.sqrt(c.calibrationY*c.calibrationY+c.calibrationX*c.calibrationX+c.calibrationZ*c.calibrationZ)){
+      u=0;
+    }*/
+    //abs of negative values
 
     /*double u3_bias=0;
     double u3_perfect=0;
     u3_bias=u3-u3_bias;*/
     //First Step (Prediction)
     //predict State
-    print("prediction of state vector");
-
     array2dMultiplyToScalar(b, u);
-    array2dMultiplyToScalar(gy, dt*0.98);
-    array2dMultiplyToScalar(ac, 0.02);
-    Array2d q_estimate_curr=addition(addition(addition(mult(a,q_estimate),b),gy),ac);//addition(mult(a,q_estimate),mult(b,u));
-    print("predction is $q_estimate_curr");
+    array2dMultiplyToScalar(gy, dt* 0.98);
+    array2dMultiplyToScalar(ac,0.02);
+
+    Array2d q_estimate_curr=addition(addition((mult(a,q_estimate)),gy),ac);
     zp.add(q_estimate_curr.first);
     zv.add(q_estimate_curr.elementAt(1));
     za.add(q_estimate_curr.elementAt(2));
@@ -291,36 +319,36 @@ class _DeplacementState extends State<Deplacement> {
     zpitch.add(q_estimate_curr.last);
 
     //predict next covariance
-    print("prediction of covaraince");
     p=addition(mult(mult(a,p),matrixTranspose(a)),ex);
-    print("p = $p");
     //Second Step (Update)
     //kalman gain
 
     k=mult(mult(p,matrixTranspose(h)),inverse(addition(mult(mult(h,p),matrixTranspose(h)),r)));
-    print("kalman gain $k");
+
     //update the state estimate
-    y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),q_estimate_curr.elementAt(3),q_estimate_curr.last]);
+    y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),gy.elementAt(3),gy.last]);
+    /*if(u==uPrevious){
+      q_estimate=q_estimate_previous;
+    }*/
     q_estimate=addition(q_estimate_curr,mult(k,(y-mult(h,q_estimate_curr))));
-    print("q_estimate= $q_estimate");
+
     //update covariance
     p=mult((Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])])-(mult(k,h))),p);
-    print("updated covariance = $p");
+
     d_estimate_az.add(q_estimate.first);
     v_estimate_az.add(q_estimate.elementAt(1));
     a_estimate_az.add(q_estimate.elementAt(2));
     roll_estimate_az.add(q_estimate.elementAt(3));
     pitch_estimate_az.add(q_estimate.last);
 
-    print("Estimated acceleration= $a_estimate_az");
-    print("Real acceleration = $u");
+    uPrevious=u;
+    q_estimate_previous=q_estimate;
+    double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
 
-    print("Estimated roll= $roll_estimate_az");
-    double rollResult=roll*dt;
-    print("Real roll = $rollResult");
-    print("Estimated pitch= $pitch_estimate_az");
-    double pitchResult=pitch*dt;
-    print("Real acceleration = $pitchResult");
+    counterList++;
+    print("counterList= $counterList");
+    dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first,
+        d_estimate_az.elementAt(counterList-1).first, d_estimate_az.elementAt(counterList-1).first, counterList));
 
   }
 
@@ -368,8 +396,108 @@ class _DeplacementState extends State<Deplacement> {
     }
   }
 
+}
 
-  void updateDataList(double x,double y, double z, double dt){
+class Calibration{
+  double calibrationX;
+  double calibrationY;
+  double calibrationZ;
+  Calibration(this.calibrationX,this.calibrationY,this.calibrationZ);
+}
+
+class AccelerometerData{
+  double xAxis;
+  double yAxis;
+  double zAxis;
+  int time;
+  AccelerometerData(this.xAxis,this.yAxis,this.zAxis,this.time);
+}
+class GyroscopeData{
+  double xAxis;
+  double yAxis;
+  double zAxis;
+  GyroscopeData(this.xAxis,this.yAxis,this.zAxis);
+}
+
+
+
+
+/*class PointPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // TODO: implement paint
+    //paint parameters
+    final paint = Paint()
+      ..strokeWidth = 5
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke;
+    //3 axis variabels
+    double xAxisFrom = 0;
+    double yAxisFrom = 0;
+    double zAxisFrom = 0;
+    double xAxisTo = 0;
+    double yAxisTo = 0;
+    double zAxisTo = 0;
+    //list of points
+    List<Point> points = <Point>[];
+    //path variable
+    final path = Path();
+    //counter variable
+    int c = 0;
+
+    accelerometerEvents.listen((AccelerometerEvent event2) {
+      xAxisTo = event2.x;
+      print("x=$xAxisTo");
+      yAxisTo = event2.y;
+      print("y=$yAxisTo");
+      zAxisTo = event2.z;
+      print("z=$zAxisTo");
+      Point p = Point(xAxisTo, yAxisTo);
+      if (c == 0 || (p.x != points[0].x) || (p.y != points[0].y)) {
+        points.add(p);
+        print("Point added");
+        c++;
+        print("counter= $c");
+      }
+      if (points.length >= 2) {
+        print("points[0]");
+        print(points[0].x! * 100 / size.width);
+        print(points[0].y! * 100 / size.height);
+        print("points[1]");
+        print(points[1].x! * 100 / size.width);
+        print(points[1].y! * 100 / size.height);
+        if (points.length == 2) {
+          path.moveTo(points[0].x! * 100, points[0].y! * 100);
+        }
+        path.lineTo(points[1].x! * 100, points[1].y! * 100);
+        canvas.drawPath(path, paint);
+
+        points.removeAt(0);
+        print("line exist");
+      }
+    });
+  }
+
+
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    // TODO: implement shouldRepaint
+    return false;
+  }
+}
+
+class Point {
+  double? x;
+  double? y;
+
+  Point(double x, double y) {
+    this.x = x;
+    this.y = y;
+  }
+}
+
+void updateDataList(double x,double y, double z, double dt){
     //velocity variabels
     double velocityX = 0.0;
     double velocityY = 0.0;
@@ -380,7 +508,6 @@ class _DeplacementState extends State<Deplacement> {
     double displacementZ = 0.0;
 
     print("dt=$dt");
-
 
     //pitch and roll variabels
     double pitch;
@@ -394,8 +521,6 @@ class _DeplacementState extends State<Deplacement> {
     double accelerationX = x;
     double accelerationY = y;
     double accelerationZ = z;
-
-
 
     //filtering
     while (counter < 64) {
@@ -504,106 +629,4 @@ class _DeplacementState extends State<Deplacement> {
     int l=dataList.length;
     print("dataList.length= $l");
 
-  }
-}
-
-class Calibration{
-  double calibrationX;
-  double calibrationY;
-  double calibrationZ;
-  Calibration(this.calibrationX,this.calibrationY,this.calibrationZ);
-}
-
-class AccelerometerData{
-  double xAxis;
-  double yAxis;
-  double zAxis;
-  int time;
-  AccelerometerData(this.xAxis,this.yAxis,this.zAxis,this.time);
-}
-class GyroscopeData{
-  double xAxis;
-  double yAxis;
-  double zAxis;
-  GyroscopeData(this.xAxis,this.yAxis,this.zAxis);
-}
-
-
-
-
-
-
-/*class PointPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // TODO: implement paint
-    //paint parameters
-    final paint = Paint()
-      ..strokeWidth = 5
-      ..color = Colors.black
-      ..style = PaintingStyle.stroke;
-    //3 axis variabels
-    double xAxisFrom = 0;
-    double yAxisFrom = 0;
-    double zAxisFrom = 0;
-    double xAxisTo = 0;
-    double yAxisTo = 0;
-    double zAxisTo = 0;
-    //list of points
-    List<Point> points = <Point>[];
-    //path variable
-    final path = Path();
-    //counter variable
-    int c = 0;
-
-    accelerometerEvents.listen((AccelerometerEvent event2) {
-      xAxisTo = event2.x;
-      print("x=$xAxisTo");
-      yAxisTo = event2.y;
-      print("y=$yAxisTo");
-      zAxisTo = event2.z;
-      print("z=$zAxisTo");
-      Point p = Point(xAxisTo, yAxisTo);
-      if (c == 0 || (p.x != points[0].x) || (p.y != points[0].y)) {
-        points.add(p);
-        print("Point added");
-        c++;
-        print("counter= $c");
-      }
-      if (points.length >= 2) {
-        print("points[0]");
-        print(points[0].x! * 100 / size.width);
-        print(points[0].y! * 100 / size.height);
-        print("points[1]");
-        print(points[1].x! * 100 / size.width);
-        print(points[1].y! * 100 / size.height);
-        if (points.length == 2) {
-          path.moveTo(points[0].x! * 100, points[0].y! * 100);
-        }
-        path.lineTo(points[1].x! * 100, points[1].y! * 100);
-        canvas.drawPath(path, paint);
-
-        points.removeAt(0);
-        print("line exist");
-      }
-    });
-  }
-
-
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    // TODO: implement shouldRepaint
-    return false;
-  }
-}
-
-class Point {
-  double? x;
-  double? y;
-
-  Point(double x, double y) {
-    this.x = x;
-    this.y = y;
-  }
-}*/
+  }*/*/
