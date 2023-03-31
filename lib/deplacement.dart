@@ -91,9 +91,13 @@ class _DeplacementState extends State<Deplacement> {
   double counterY = 0;
   double counterZ = 0;
 
-  double uPrevious=0;
+  double u1Previous=0;
+  double u2Previous=0;
+  double u3Previous=0;
 
-
+  double positionX=0;
+  double positionY=0;
+  double positionZ=0;
 
   @override
   void initState(){
@@ -159,10 +163,6 @@ class _DeplacementState extends State<Deplacement> {
                         ],
                       ),
                       ),
-
-
-
-
 
             Expanded(
                 child:
@@ -291,9 +291,15 @@ class _DeplacementState extends State<Deplacement> {
       Array([0,math.cos(roll),-math.sin(roll)])]);
     //input bias
 
-     u1=u1-c.calibrationX/300;
-     u2=u2-c.calibrationY/300;
-     u3=u3-c.calibrationZ/300;
+     /*double u1_bias=u1-c.calibrationX/300;
+     double u2_bias=u2-c.calibrationY/300;
+     double u3_bias=u3-c.calibrationZ/300;
+
+     u1=u1-u1_bias;
+     u2=u2-u2_bias;
+     u3=u3-u3_bias;*/
+
+     Array2d uInput=Array2d([Array([u1]),Array([u2]),Array([u3]),Array([u1]),Array([u2]),Array([u3]),Array([0]),Array([0])]);
     //input without bias
    /* u1=u1-u1_bias;
     u2=u2-u2_bias;
@@ -353,10 +359,10 @@ class _DeplacementState extends State<Deplacement> {
     //print("gy1= $gy1");
 
     //Array2d q_estimate_curr=addition((mult(a,q_estimate)),ac);
-    print("input acc x: $u1, y: $u2, z: $u3");
+    //print("input acc x: $u1, y: $u2, z: $u3");
 
     Array2d q_estimate_curr1=addition((mult(a1,q_estimate1)),ac1);
-    print("q_estimate_curr1 dx = ${q_estimate_curr1.first}");
+    //print("q_estimate_curr1 dx = ${q_estimate_curr1.first}");
     /*zp.add(q_estimate_curr1.first);
     zv.add(q_estimate_curr1.elementAt(1));
     za.add(q_estimate_curr1.elementAt(2));
@@ -378,8 +384,8 @@ class _DeplacementState extends State<Deplacement> {
     //y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),Array([roll]),Array([pitch])]);
     y1=Array2d([q_estimate_curr1.first,q_estimate_curr1.elementAt(1),q_estimate_curr1.elementAt(2),
       Array([u1]),Array([u2]),Array([u3]),Array([roll]),Array([pitch])]);
-    print("y1 dx= ${y1.first} ");
-    print("y1 ax= ${y1.elementAt(3)}");
+    //print("y1 dx= ${y1.first} ");
+    //print("y1 ax= ${y1.elementAt(3)}");
     //print("y1 roll= ${y1.elementAt(6)} pitch=${y1.last} ");
 
 
@@ -389,7 +395,7 @@ class _DeplacementState extends State<Deplacement> {
     }*/
     //q_estimate=addition(q_estimate_curr,mult(k,(y-mult(h,q_estimate_curr))));
     q_estimate1=addition(q_estimate_curr1,mult(k1,(y1-mult(h1,q_estimate_curr1))));
-    print("q_estimate1 dx =${q_estimate1.first}");
+    //print("q_estimate1 dx =${q_estimate1.first}");
     //update covariance
     //p=mult((Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])])-(mult(k,h))),p);
     p1=mult((Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
@@ -412,11 +418,26 @@ class _DeplacementState extends State<Deplacement> {
     print("d_estimate_az= ${d_estimate_az.last}");*/
 
 
-    uPrevious=u;
+
     q_estimate_previous=q_estimate;
     double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
-
+    if((u1<=0 && u1Previous>0)||(u1>=0 && u1Previous<0)){
+      positionX=positionX+d_estimate_ax.elementAt(counterList).first;
+      //print("positionX= $positionX");
+    }
+    if((u2<=0 && u2Previous>0)||(u2>=0 && u2Previous<0)){
+      positionY=positionY+d_estimate_ay.elementAt(counterList).first;
+    }
+    if((u3<=0 && u3Previous>0)||(u3>=0 && u3Previous<0)){
+      positionZ=positionZ+d_estimate_az.elementAt(counterList).first;
+    }
+    //storing last acceleration variables
+    u1Previous=u1;
+    u2Previous=u2;
+    u3Previous=u3;
+    //number of element of dataList
     counterList++;
+    //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
     dataList.add(AccelerometerData(
         d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
