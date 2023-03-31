@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:arcore_flutter_plugin/arcore_flutter_plugin.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
+import 'dart:ui' as ui;
+import 'package:ar_flutter_plugin/ar_flutter_plugin.dart';
 
 class Camera extends StatefulWidget {
   @override
@@ -11,11 +13,42 @@ class Camera extends StatefulWidget {
 class _RuntimeMaterialsState extends State<Camera> {
   ArCoreController? arCoreController;
   ArCoreNode? sphereNode;
+  int numObject=0;
+
+  ui.Image? _textImage;
+  bool _isTextImageLoaded = false;
 
   double metallic = 0.0;
   double roughness = 0.4;
   double reflectance = 0.5;
-  Color color = Colors.yellow;
+  Color color = Colors.red;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    _loadTextImage();
+  }
+
+  void _loadTextImage() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final textSpan = TextSpan(
+      text: 'Hello, AR!',
+      style: TextStyle(fontSize: 40, color: Colors.white),
+    );
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    textPainter.paint(canvas, Offset.zero);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(textPainter.width.toInt(), textPainter.height.toInt());
+    setState(() {
+      _textImage = image;
+      _isTextImageLoaded = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +78,8 @@ class _RuntimeMaterialsState extends State<Camera> {
             Expanded(
               child: ArCoreView(
                 onArCoreViewCreated: _onArCoreViewCreated,
+                enableTapRecognizer: true,
+                enableUpdateListener: true,
               ),
             ),
           ],
@@ -55,24 +90,62 @@ class _RuntimeMaterialsState extends State<Camera> {
 
   void _onArCoreViewCreated(ArCoreController controller) {
     arCoreController = controller;
-
-    _addSphere();
+    arCoreController?.onNodeTap = (name) => onTapHandler(name);
+    arCoreController?.onPlaneTap = _onPlaneTapHandler;
+    arCoreController?.onPlaneDetected= _onPlaneDetected;
+    //_addSphere();
   }
-
-  void _addSphere() {
-    final material = ArCoreMaterial(
-      color: Colors.yellow,
+  void onTapHandler(String name) {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext context) =>
+          AlertDialog(content: Text('onNodeTap on $name')),
     );
-    final sphere = ArCoreSphere(
+  }
+  void _onPlaneTapHandler(List<ArCoreHitTestResult> hits) async {
+    while (numObject<=3) {
+
+      print("fanen");
+      final material = ArCoreMaterial(
+        color: Colors.red,
+      );
+      final material1 = ArCoreMaterial(
+        color:Colors.red,
+        textureBytes: (await _textImage?.toByteData())?.buffer.asUint8List(),
+      );
+      print("Imageloaded = $_isTextImageLoaded");
+     // }
+      /*final sphere = ArCoreSphere(
       materials: [material],
       radius: 0.1,
+    );*/
+
+      final cube = ArCoreCube(
+          size: vector.Vector3(0.2, 0.2, 0.2), materials: [material1]);
+      sphereNode = ArCoreNode(
+        shape: cube,
+        position: vector.Vector3(-0.005, -1,numObject.toDouble()*0.505),
+      );
+      arCoreController?.addArCoreNode(sphereNode!);
+      numObject++;
+    }
+  }
+
+  /*void _addSphere() {
+    final material = ArCoreMaterial(
+      color: Colors.red,
     );
+    /*final sphere = ArCoreSphere(
+      materials: [material],
+      radius: 0.1,
+    );*/
+    final cube = ArCoreCube(size: vector.Vector3(0.2,0.2,0.001), materials: [material]);
     sphereNode = ArCoreNode(
-      shape: sphere,
+      shape: cube,
       position: vector.Vector3(0, 0, -1.5),
     );
     arCoreController?.addArCoreNode(sphereNode!);
-  }
+  }*/
 
   onColorChange(Color newColor) {
     if (newColor != this.color) {
@@ -121,6 +194,10 @@ class _RuntimeMaterialsState extends State<Camera> {
   void dispose() {
     arCoreController?.dispose();
     super.dispose();
+  }
+
+  void _onPlaneDetected(ArCorePlane plane) {
+  print("plane detected");
   }
 }
 

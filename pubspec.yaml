@@ -33,12 +33,10 @@ dependencies:
     sdk: flutter
   sensors_plus: ^1.2.2
   arcore_flutter_plugin: ^0.1.0
-  #camera: ^0.9.7+1
   syncfusion_flutter_charts: ^20.4.52
-  #extended_math: ^0.0.29+1
   scidart: ^0.0.2-dev.12
-#dependency_overrides:
-  #quiver: ^3.0.0
+  ar_flutter_plugin: ^0.7.3
+
 
 
   # The following adds the Cupertino Icons font to your application.

@@ -30,18 +30,37 @@ class _DeplacementState extends State<Deplacement> {
   int counterItem=0;
   int counterList=0;
 
+  double pitch=0;
+  double roll=0;
+
   //Observation Matrix
   Array2d h=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+  Array2d h1=Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
+    Array([0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
+
   //Measurment Matrix
   Array2d u=Array2d([Array([0,0,1])]);
   //double u=0;
   Array2d y=Array2d.empty();
+  Array2d y1=Array2d.empty();
+
   Array2d q=Array2d([Array([0]),Array([0]),Array([0])]);
   Array2d q_estimate=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+  Array2d q_estimate1=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+
   Array2d p=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+  Array2d p1=Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
+    Array([0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
+
   Array2d ex=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+  Array2d ex1=Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
+    Array([0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
   Array2d r=Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+  Array2d r1=Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
+    Array([0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
   Array2d k=Array2d.empty();
+  Array2d k1=Array2d.empty();
+
   Array2d bResult=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
   Array2d q_estimate_previous=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
 
@@ -57,6 +76,8 @@ class _DeplacementState extends State<Deplacement> {
   Array2d zpitch=Array2d.empty();
 
   Array2d d_estimate_az=Array2d.empty();
+  Array2d d_estimate_ax=Array2d.empty();
+  Array2d d_estimate_ay=Array2d.empty();
 
   Array2d v_estimate_az=Array2d.empty();
 
@@ -108,6 +129,7 @@ class _DeplacementState extends State<Deplacement> {
                                 setState(()  {
                                   dataList=[];
                                   setAccelerometerData();
+                                  setGyroscopeData();
                                   //dataList= getDataList() ;
                                 });
 
@@ -153,7 +175,7 @@ class _DeplacementState extends State<Deplacement> {
                   dataSource: dataList,
                   color:const Color.fromRGBO(192,108,132,1),
                   xValueMapper: (AccelerometerData data,_) => data.time.toDouble(),
-                  yValueMapper: (AccelerometerData data,_) => data.yAxis
+                  yValueMapper: (AccelerometerData data,_) => data.xAxis
               )
             ],
             primaryXAxis: NumericAxis(
@@ -185,7 +207,6 @@ class _DeplacementState extends State<Deplacement> {
     }
   }
 
-
   List<AccelerometerData> getAccelerometerData() {
     return dataList;
   }
@@ -215,7 +236,7 @@ class _DeplacementState extends State<Deplacement> {
           lastUpdate = now;
 
 
-          if(listCounter<1000) {
+          if(listCounter<300) {
             calibStateX=calibStateX+event.x;
             calibStateY=calibStateY+event.y;
             calibStateZ=calibStateZ+event.z;
@@ -223,9 +244,6 @@ class _DeplacementState extends State<Deplacement> {
                 listCounter++;
           }
           else{
-          calibStateX = calibStateX / 1000;
-          calibStateY = calibStateY / 1000;
-          calibStateZ = calibStateZ / 1000;
 
           c=Calibration(calibStateX, calibStateY, calibStateZ);
           //if(counterItem<10){
@@ -252,40 +270,52 @@ class _DeplacementState extends State<Deplacement> {
         calibStateY = calibStateX + accelDataList[i].yAxis;
         calibStateZ = calibStateX + accelDataList[i].zAxis;
     }
-      calibStateX = calibStateX / 1000;
-      calibStateY = calibStateY / 1000;
-      calibStateZ = calibStateZ / 1000;
+      calibStateX = calibStateX / 300;
+      calibStateY = calibStateY / 300;
+      calibStateZ = calibStateZ / 300;
       print("calibration is done");
       return Calibration(calibStateX, calibStateY, calibStateZ);
   }
 
   void kalmanFilter(double x1,double x2 , double x3,double t,Calibration c){
     //setting variabels
-    //event output on X,Y and Z
+    //event input on X,Y and Z
     double u1=x1;
     double u2=x2;
     double u3=x3;
+    //print("input before acc x: $u1, y: $u2, z: $u3");
     //double x=0;
-    double pitch=getGyroscopeData().xAxis;
-    double roll=getGyroscopeData().yAxis;
-    double u1_bias=u1-c.calibrationX;
-    double u2_bias=u1-c.calibrationY;
-    double u3_bias=u1-c.calibrationZ;
+    Array2d gyInput=Array2d([Array([getGyroscopeData().xAxis]),Array([getGyroscopeData().yAxis]),Array([getGyroscopeData().zAxis])]);
+    //Euler rates transformation matrix
+    Array2d gyControlMatrix=Array2d([Array([1,math.sin(roll)*math.tan(pitch),math.cos(roll)*math.tan(pitch)]),
+      Array([0,math.cos(roll),-math.sin(roll)])]);
+    //input bias
 
-    u1=u1-u1_bias;
+     u1=u1-c.calibrationX/300;
+     u2=u2-c.calibrationY/300;
+     u3=u3-c.calibrationZ/300;
+    //input without bias
+   /* u1=u1-u1_bias;
     u2=u2-u2_bias;
-    u3=u3-u3_bias;
-
+    u3=u3-u3_bias;*/
     //time delay
     double dt=t;
     //control vector
-    Array2d b =Array2d([Array([dt*dt/2]) ,Array([dt]),Array([1]),Array([0]),Array([0])]);
+    Array2d b =Array2d([Array([dt*dt/2]) ,Array([dt*dt/2]),Array([dt*dt/2]),Array([1]),Array([1]),Array([1]),Array([0]),Array([0])]);
     //State Transition Matrix
-    Array2d a=Array2d([Array([1,0,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+    //Array2d a=Array2d([Array([1,dt,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+    Array2d a1=Array2d([Array([1,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
+      Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
+
+    /*Array2d a2=Array2d([Array([1,0,0,0,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,0,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,0,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,dt,0,0,0,0]),
+      Array([0,0,0,0,1,0,0,dt,0,0,0]),Array([0,0,0,0,0,1,0,0,dt,0,0]),Array([0,0,0,0,0,0,1,0,0,0,0]),Array([0,0,0,0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,0,0,0,1,0,0]),
+      Array([0,0,0,0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,0,0,0,1])]);*/
     Array2d gy=Array2d([Array([0]),Array([0]),Array([0]),Array([pitch]),Array([roll])]);
     Array2d ac=Array2d([Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
+    Array2d ac1=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
 
-    if(u1<0){
+
+    /*if(u1<0){
       u1=-u1;
     }
     if(u2<0){
@@ -293,7 +323,7 @@ class _DeplacementState extends State<Deplacement> {
     }
     if(u3<0){
       u3=-u3;
-    }
+    }*/
 
     double u= math.sqrt(u1*u1+u2*u2+u3*u3);
 
@@ -308,47 +338,91 @@ class _DeplacementState extends State<Deplacement> {
     //First Step (Prediction)
     //predict State
     array2dMultiplyToScalar(b, u);
-    array2dMultiplyToScalar(gy, dt* 0.98);
-    array2dMultiplyToScalar(ac,0.02);
+    //array2dMultiplyToScalar(gy, dt);
+    //array2dMultiplyToScalar(ac,0.02);
 
-    Array2d q_estimate_curr=addition(addition((mult(a,q_estimate)),gy),ac);
-    zp.add(q_estimate_curr.first);
-    zv.add(q_estimate_curr.elementAt(1));
-    za.add(q_estimate_curr.elementAt(2));
-    zroll.add(q_estimate_curr.elementAt(3));
-    zpitch.add(q_estimate_curr.last);
+
+    /*print("gy input = $gyInput");
+    print("gy control matrix $gyControlMatrix");*/
+    //Array2d gy1=array2dMultiplyToScalar(gy,180/math.pi);
+    /*print("gy= $gy");
+    roll=gy.first.first;
+    pitch=gy.last.first;
+    print("roll= $roll");
+    print("pitch = $pitch ");*/
+    //print("gy1= $gy1");
+
+    //Array2d q_estimate_curr=addition((mult(a,q_estimate)),ac);
+    print("input acc x: $u1, y: $u2, z: $u3");
+
+    Array2d q_estimate_curr1=addition((mult(a1,q_estimate1)),ac1);
+    print("q_estimate_curr1 dx = ${q_estimate_curr1.first}");
+    /*zp.add(q_estimate_curr1.first);
+    zv.add(q_estimate_curr1.elementAt(1));
+    za.add(q_estimate_curr1.elementAt(2));
+    zroll.add(q_estimate_curr1.elementAt(3));
+    zpitch.add(q_estimate_curr1.last);*/
 
     //predict next covariance
-    p=addition(mult(mult(a,p),matrixTranspose(a)),ex);
+    //p=addition(mult(mult(a,p),matrixTranspose(a)),ex);
+    p1=addition(mult(mult(a1,p1),matrixTranspose(a1)),ex1);
     //Second Step (Update)
     //kalman gain
+    //k=mult(mult(p,matrixTranspose(h)),inverse(addition(mult(mult(h,p),matrixTranspose(h)),r)));
+    k1=mult(mult(p1,matrixTranspose(h1)),inverse(addition(mult(mult(h1,p1),matrixTranspose(h1)),r1)));
 
-    k=mult(mult(p,matrixTranspose(h)),inverse(addition(mult(mult(h,p),matrixTranspose(h)),r)));
-
+    gy=mult(gyInput,gyControlMatrix);
+    roll=roll+gy.elementAt(0).first*dt;
+    pitch=pitch+gy.elementAt(1).first*dt;
     //update the state estimate
-    y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),gy.elementAt(3),gy.last]);
-    /*if(u==uPrevious){
+    //y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),Array([roll]),Array([pitch])]);
+    y1=Array2d([q_estimate_curr1.first,q_estimate_curr1.elementAt(1),q_estimate_curr1.elementAt(2),
+      Array([u1]),Array([u2]),Array([u3]),Array([roll]),Array([pitch])]);
+    print("y1 dx= ${y1.first} ");
+    print("y1 ax= ${y1.elementAt(3)}");
+    //print("y1 roll= ${y1.elementAt(6)} pitch=${y1.last} ");
+
+
+    /*if(u!=uPrevious){
       q_estimate=q_estimate_previous;
+      print("taw");
     }*/
-    q_estimate=addition(q_estimate_curr,mult(k,(y-mult(h,q_estimate_curr))));
-
+    //q_estimate=addition(q_estimate_curr,mult(k,(y-mult(h,q_estimate_curr))));
+    q_estimate1=addition(q_estimate_curr1,mult(k1,(y1-mult(h1,q_estimate_curr1))));
+    print("q_estimate1 dx =${q_estimate1.first}");
     //update covariance
-    p=mult((Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])])-(mult(k,h))),p);
+    //p=mult((Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])])-(mult(k,h))),p);
+    p1=mult((Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
+      Array([0,0,0,0,1,0,0,0]),Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])])-(mult(k1,h1))),p1);
 
-    d_estimate_az.add(q_estimate.first);
+
+    /*d_estimate_az.add(q_estimate.first);
     v_estimate_az.add(q_estimate.elementAt(1));
     a_estimate_az.add(q_estimate.elementAt(2));
     roll_estimate_az.add(q_estimate.elementAt(3));
-    pitch_estimate_az.add(q_estimate.last);
+    pitch_estimate_az.add(q_estimate.last);*/
+
+    d_estimate_ax.add(q_estimate1.first);
+    d_estimate_ay.add(q_estimate1.elementAt(1));
+    d_estimate_az.add(q_estimate1.elementAt(2));
+    roll_estimate_az.add(q_estimate1.elementAt(6));
+    pitch_estimate_az.add(q_estimate1.last);
+    /*print("d_estimate_ax= ${d_estimate_ax.last}");
+    print("d_estimate_ay= ${d_estimate_ay.last}");
+    print("d_estimate_az= ${d_estimate_az.last}");*/
+
 
     uPrevious=u;
     q_estimate_previous=q_estimate;
     double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
 
     counterList++;
-    print("counterList= $counterList");
-    dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first,
-        d_estimate_az.elementAt(counterList-1).first, d_estimate_az.elementAt(counterList-1).first, counterList));
+    //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
+    dataList.add(AccelerometerData(
+        d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
+        d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
+        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));
+    //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }
 
