@@ -167,6 +167,7 @@ class _DeplacementState extends State<Deplacement> {
             Expanded(
                 child:
         SfCartesianChart(
+            primaryXAxis: CategoryAxis(),
             series:<ChartSeries>[
               LineSeries<AccelerometerData,double>(
                 /*onRendererCreated: (ChartSeriesController controller){
@@ -176,9 +177,27 @@ class _DeplacementState extends State<Deplacement> {
                   color:const Color.fromRGBO(192,108,132,1),
                   xValueMapper: (AccelerometerData data,_) => data.time.toDouble(),
                   yValueMapper: (AccelerometerData data,_) => data.xAxis
+              ),
+              LineSeries<AccelerometerData,double>(
+                /*onRendererCreated: (ChartSeriesController controller){
+                      dataSerieController=controller;
+                    },*/
+                  dataSource: dataList,
+                  color:const Color.fromRGBO(30, 54, 172, 1.0),
+                  xValueMapper: (AccelerometerData data,_) => data.time.toDouble(),
+                  yValueMapper: (AccelerometerData data,_) => data.yAxis
+              ),
+              LineSeries<AccelerometerData,double>(
+                /*onRendererCreated: (ChartSeriesController controller){
+                      dataSerieController=controller;
+                    },*/
+                  dataSource: dataList,
+                  color:const Color.fromRGBO(56, 196, 15, 1.0),
+                  xValueMapper: (AccelerometerData data,_) => data.time.toDouble(),
+                  yValueMapper: (AccelerometerData data,_) => data.zAxis
               )
             ],
-            primaryXAxis: NumericAxis(
+            /*primaryXAxis: NumericAxis(
                 title:AxisTitle(
                     text: "Time unit"
                 )
@@ -187,7 +206,7 @@ class _DeplacementState extends State<Deplacement> {
                 title: AxisTitle(
                     text: "Displacement on X"
                 )
-            ),
+            ),*/
         )
             ),
                     ]
@@ -279,10 +298,20 @@ class _DeplacementState extends State<Deplacement> {
 
   void kalmanFilter(double x1,double x2 , double x3,double t,Calibration c){
     //setting variabels
+    print("start");
     //event input on X,Y and Z
     double u1=x1;
     double u2=x2;
     double u3=x3;
+    if(u1<0.05&&u1>(-0.05)){
+      u1=0;
+    }
+    if(u2<0.05&&u2>(-0.05)){
+      u2=0;
+    }
+    if(u3<0.05&&u3>(-0.05)){
+      u3=0;
+    }
     //print("input before acc x: $u1, y: $u2, z: $u3");
     //double x=0;
     Array2d gyInput=Array2d([Array([getGyroscopeData().xAxis]),Array([getGyroscopeData().yAxis]),Array([getGyroscopeData().zAxis])]);
@@ -304,13 +333,15 @@ class _DeplacementState extends State<Deplacement> {
    /* u1=u1-u1_bias;
     u2=u2-u2_bias;
     u3=u3-u3_bias;*/
+
+    Array2d sumAcc=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
     //time delay
     double dt=t;
     //control vector
-    Array2d b =Array2d([Array([dt*dt/2]) ,Array([dt*dt/2]),Array([dt*dt/2]),Array([1]),Array([1]),Array([1]),Array([0]),Array([0])]);
+    Array2d u =Array2d([Array([u1]) ,Array([u2]),Array([u3]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
     //State Transition Matrix
     //Array2d a=Array2d([Array([1,dt,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
-    Array2d a1=Array2d([Array([1,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
+    Array2d a1=Array2d([Array([1,0,0,3*dt*dt/4,0,0,0,0]),Array([0,1,0,0,3*dt*dt/2,0,0,0]),Array([0,0,1,0,0,3*dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
       Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
 
     /*Array2d a2=Array2d([Array([1,0,0,0,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,0,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,0,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,dt,0,0,0,0]),
@@ -319,6 +350,7 @@ class _DeplacementState extends State<Deplacement> {
     Array2d gy=Array2d([Array([0]),Array([0]),Array([0]),Array([pitch]),Array([roll])]);
     Array2d ac=Array2d([Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
     Array2d ac1=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
+    Array2d sum=Array2d.empty();
 
 
     /*if(u1<0){
@@ -331,7 +363,7 @@ class _DeplacementState extends State<Deplacement> {
       u3=-u3;
     }*/
 
-    double u= math.sqrt(u1*u1+u2*u2+u3*u3);
+    //double u= math.sqrt(u1*u1+u2*u2+u3*u3);
 
     /*if (u<math.sqrt(c.calibrationY*c.calibrationY+c.calibrationX*c.calibrationX+c.calibrationZ*c.calibrationZ)){
       u=0;
@@ -343,7 +375,13 @@ class _DeplacementState extends State<Deplacement> {
     u3_bias=u3-u3_bias;*/
     //First Step (Prediction)
     //predict State
-    array2dMultiplyToScalar(b, u);
+    array2dMultiplyToScalar(u, dt*dt/4);
+    if(counterList<2) {
+      sumAcc=addition(sumAcc,Array2d([Array([u1]),Array([u2]),Array([u3]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]));
+    }
+    sum=sumAcc;
+    array2dMultiplyToScalar(sum, dt * dt);
+
     //array2dMultiplyToScalar(gy, dt);
     //array2dMultiplyToScalar(ac,0.02);
 
@@ -361,7 +399,7 @@ class _DeplacementState extends State<Deplacement> {
     //Array2d q_estimate_curr=addition((mult(a,q_estimate)),ac);
     //print("input acc x: $u1, y: $u2, z: $u3");
 
-    Array2d q_estimate_curr1=addition((mult(a1,q_estimate1)),ac1);
+    Array2d q_estimate_curr1=addition(addition(addition((mult(a1,q_estimate1)),u),sum),ac1);
     //print("q_estimate_curr1 dx = ${q_estimate_curr1.first}");
     /*zp.add(q_estimate_curr1.first);
     zv.add(q_estimate_curr1.elementAt(1));
@@ -418,31 +456,31 @@ class _DeplacementState extends State<Deplacement> {
     print("d_estimate_az= ${d_estimate_az.last}");*/
 
 
-
+    counterList++;
     q_estimate_previous=q_estimate;
     double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
-    if((u1<=0 && u1Previous>0)||(u1>=0 && u1Previous<0)){
-      positionX=positionX+d_estimate_ax.elementAt(counterList).first;
+    if((u1<0 && u1Previous>0)||(u1>0 && u1Previous<0)){
+      positionX=positionX+d_estimate_ax.elementAt(counterList-1).first;
       //print("positionX= $positionX");
     }
-    if((u2<=0 && u2Previous>0)||(u2>=0 && u2Previous<0)){
-      positionY=positionY+d_estimate_ay.elementAt(counterList).first;
+    if((u2<0 && u2Previous>0)||(u2>0 && u2Previous<0)){
+      positionY=positionY+d_estimate_ay.elementAt(counterList-1).first;
     }
-    if((u3<=0 && u3Previous>0)||(u3>=0 && u3Previous<0)){
-      positionZ=positionZ+d_estimate_az.elementAt(counterList).first;
+    if((u3<0 && u3Previous>0)||(u3>0 && u3Previous<0)){
+      positionZ=positionZ+d_estimate_az.elementAt(counterList-1).first;
     }
     //storing last acceleration variables
     u1Previous=u1;
     u2Previous=u2;
     u3Previous=u3;
     //number of element of dataList
-    counterList++;
-    //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
+
+    dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
-    dataList.add(AccelerometerData(
+    /*dataList.add(AccelerometerData(
         d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
         d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
-        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));
+        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));*/
     //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }

@@ -366,10 +366,20 @@ class _RuntimeMaterialsState extends State<Camera> {
   }
   void kalmanFilter(double x1,double x2 , double x3,double t,Calibration c){
     //setting variabels
+    print("start");
     //event input on X,Y and Z
     double u1=x1;
     double u2=x2;
     double u3=x3;
+    if(u1<0.05&&u1>(-0.05)){
+      u1=0;
+    }
+    if(u2<0.05&&u2>(-0.05)){
+      u2=0;
+    }
+    if(u3<0.05&&u3>(-0.05)){
+      u3=0;
+    }
     //print("input before acc x: $u1, y: $u2, z: $u3");
     //double x=0;
     Array2d gyInput=Array2d([Array([getGyroscopeData().xAxis]),Array([getGyroscopeData().yAxis]),Array([getGyroscopeData().zAxis])]);
@@ -397,7 +407,14 @@ class _RuntimeMaterialsState extends State<Camera> {
     Array2d b =Array2d([Array([dt*dt/2]) ,Array([dt*dt/2]),Array([dt*dt/2]),Array([1]),Array([1]),Array([1]),Array([0]),Array([0])]);
     //State Transition Matrix
     //Array2d a=Array2d([Array([1,dt,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
-    Array2d a1=Array2d([Array([1,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
+    /*Array2d a1=Array2d([Array([1,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
+      Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);*/
+    Array2d sumAcc=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+    //control vector
+    Array2d u =Array2d([Array([u1]) ,Array([u2]),Array([u3]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
+    //State Transition Matrix
+    //Array2d a=Array2d([Array([1,dt,dt*dt/2,0,0]),Array([0,1,dt,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])]);
+    Array2d a1=Array2d([Array([1,0,0,3*dt*dt/4,0,0,0,0]),Array([0,1,0,0,3*dt*dt/2,0,0,0]),Array([0,0,1,0,0,3*dt*dt/2,0,0]),Array([0,0,0,1,0,0,0,0]),Array([0,0,0,0,1,0,0,0]),
       Array([0,0,0,0,0,1,0,0]),Array([0,0,0,0,0,0,1,0]),Array([0,0,0,0,0,0,0,1])]);
 
     /*Array2d a2=Array2d([Array([1,0,0,0,0,0,dt*dt/2,0,0,0,0]),Array([0,1,0,0,0,0,0,dt*dt/2,0,0,0]),Array([0,0,1,0,0,0,0,0,dt*dt/2,0,0]),Array([0,0,0,1,0,0,dt,0,0,0,0]),
@@ -406,7 +423,7 @@ class _RuntimeMaterialsState extends State<Camera> {
     Array2d gy=Array2d([Array([0]),Array([0]),Array([0]),Array([pitch]),Array([roll])]);
     Array2d ac=Array2d([Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
     Array2d ac1=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([math.atan2(u2, u3)]),Array([math.atan2(-u1, math.sqrt(u2*u2+u3*u3))])]);
-
+    Array2d sum=Array2d.empty();
 
     /*if(u1<0){
       u1=-u1;
@@ -418,7 +435,7 @@ class _RuntimeMaterialsState extends State<Camera> {
       u3=-u3;
     }*/
 
-    double u= math.sqrt(u1*u1+u2*u2+u3*u3);
+    //double u= math.sqrt(u1*u1+u2*u2+u3*u3);
 
     /*if (u<math.sqrt(c.calibrationY*c.calibrationY+c.calibrationX*c.calibrationX+c.calibrationZ*c.calibrationZ)){
       u=0;
@@ -430,7 +447,7 @@ class _RuntimeMaterialsState extends State<Camera> {
     u3_bias=u3-u3_bias;*/
     //First Step (Prediction)
     //predict State
-    array2dMultiplyToScalar(b, u);
+    //array2dMultiplyToScalar(b, u);
     //array2dMultiplyToScalar(gy, dt);
     //array2dMultiplyToScalar(ac,0.02);
 
@@ -444,6 +461,12 @@ class _RuntimeMaterialsState extends State<Camera> {
     print("roll= $roll");
     print("pitch = $pitch ");*/
     //print("gy1= $gy1");
+    array2dMultiplyToScalar(u, dt*dt/4);
+    if(counterList<2) {
+      sumAcc=addition(sumAcc,Array2d([Array([u1]),Array([u2]),Array([u3]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]));
+    }
+    sum=sumAcc;
+    array2dMultiplyToScalar(sum, dt * dt);
 
     //Array2d q_estimate_curr=addition((mult(a,q_estimate)),ac);
     //print("input acc x: $u1, y: $u2, z: $u3");
@@ -508,14 +531,14 @@ class _RuntimeMaterialsState extends State<Camera> {
 
     q_estimate_previous=q_estimate;
     double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
-    if((u1<=0 && u1Previous>0)||(u1>=0 && u1Previous<0)){
+    if((u1<0 && u1Previous>0)||(u1>0 && u1Previous<0)){
       positionX=positionX+d_estimate_ax.elementAt(counterList).first;
       //print("positionX= $positionX");
     }
-    if((u2<=0 && u2Previous>0)||(u2>=0 && u2Previous<0)){
+    if((u2<0 && u2Previous>0)||(u2>0 && u2Previous<0)){
       positionY=positionY+d_estimate_ay.elementAt(counterList).first;
     }
-    if((u3<=0 && u3Previous>0)||(u3>=0 && u3Previous<0)){
+    if((u3<0 && u3Previous>0)||(u3>0 && u3Previous<0)){
       positionZ=positionZ+d_estimate_az.elementAt(counterList).first;
     }
     //storing last acceleration variables
@@ -524,12 +547,12 @@ class _RuntimeMaterialsState extends State<Camera> {
     u3Previous=u3;
     //number of element of dataList
     counterList++;
-    dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
+    //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
-    /*dataList.add(AccelerometerData(
+    dataList.add(AccelerometerData(
         d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
         d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
-        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));*/
+        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));
     //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }
