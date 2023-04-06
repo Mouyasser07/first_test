@@ -253,7 +253,7 @@ class _DeplacementState extends State<Deplacement> {
               .difference(lastUpdate)
               .inMilliseconds / 1000 : 0.0;
           lastUpdate = now;
-
+          print("on tilt acceleration =${math.sqrt(event.x*event.x+event.y*event.y+event.z*event.z)}");
 
           if(listCounter<300) {
             calibStateX=calibStateX+event.x;
@@ -272,8 +272,6 @@ class _DeplacementState extends State<Deplacement> {
           //}
             //updateDataList(event.x,event.y,event.z,dt);
           }
-
-
 
         })   );
 
@@ -475,12 +473,12 @@ class _DeplacementState extends State<Deplacement> {
     u3Previous=u3;
     //number of element of dataList
 
-    dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
+    //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
-    /*dataList.add(AccelerometerData(
-        d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
-        d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
-        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));*/
+    dataList.add(AccelerometerData(
+        d_estimate_ax.elementAt(counterList-1).first*math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first),
+        d_estimate_ay.elementAt(counterList-1).first*math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first),
+        d_estimate_az.elementAt(counterList-1).first*math.sin(pitch_estimate_az.elementAt(counterList-1).first), counterList));
     //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }

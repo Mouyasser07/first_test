@@ -18,6 +18,7 @@ class Camera extends StatefulWidget {
 class _RuntimeMaterialsState extends State<Camera> {
   ArCoreController? arCoreController;
   ArCoreNode? sphereNode;
+  ArCoreNode? gridNode;
   int numObject=0;
 
   ui.Image? _textImage;
@@ -198,11 +199,24 @@ class _RuntimeMaterialsState extends State<Camera> {
             setState(()  {
               dataList=getAccelerometerData();
               for(int i=0;i<dataList.length;i++) {
-                if(i%50==0) {
+                if(i%30==0) {
                   _addSphere(dataList[i].xAxis,dataList[i].yAxis,dataList[i].zAxis);
                 }
               }
-            });
+              /*double m=0.001;
+              double x=0;
+              double y=0;
+              double z=-1;
+              for(int i =0;i<4;i++){
+                for (int j=0;j<4;j++){
+                  _addHeatMap(x, z+(m/2), y, m);
+                  m=m+0.01;
+                  x+=0.21;
+                }
+                x=0;
+                y+=0.21;
+              }*/
+              });
 
           },
           child: Text("See data ")
@@ -289,6 +303,43 @@ class _RuntimeMaterialsState extends State<Camera> {
       numObject++;
     }
   }*/
+  void _addHeatMap(double x,double y,double z ,double m){
+    print('m= $m');
+    var material =ArCoreMaterial(
+      color:Color.fromRGBO(15, 72, 196, 0.8),
+    );
+    if(m>=0.068){
+       material =ArCoreMaterial(
+        color:Color.fromRGBO(75, 196, 15, 0.8),
+      );
+    }
+    if(m>=0.102) {
+       material =ArCoreMaterial(
+        color:Color.fromRGBO(196, 181, 15, 0.8),
+      );
+    }
+    if(m>=0.136) {
+       material =ArCoreMaterial(
+        color:Color.fromRGBO(196, 106, 15, 0.8),
+      );
+    }
+    if(m>=0.17) {
+       material =ArCoreMaterial(
+        color:Color.fromRGBO(196, 15, 36, 0.8),
+      );
+    }
+
+      final cube = ArCoreCube(
+          size: vector.Vector3(0.2, m,0.2),
+          materials: [material]
+      );
+      gridNode = ArCoreNode(
+          shape:cube,
+          position:vector.Vector3(x,y,z)
+      );
+      arCoreController?.addArCoreNode(gridNode!);
+
+  }
 
   void _addSphere(double x, double y,double z) {
 
@@ -547,12 +598,12 @@ class _RuntimeMaterialsState extends State<Camera> {
     u3Previous=u3;
     //number of element of dataList
     counterList++;
-    //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
+    dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
-    dataList.add(AccelerometerData(
+    /*dataList.add(AccelerometerData(
         d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
         d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
-        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));
+        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));*/
     //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }
@@ -635,7 +686,7 @@ class _RuntimeMaterialsState extends State<Camera> {
 
   updateMaterials() {
     debugPrint("updateMaterials");
-    if (sphereNode == null) {
+    if (gridNode == null) {
       return;
     }
     debugPrint("updateMaterials sphere node not null");
@@ -645,7 +696,7 @@ class _RuntimeMaterialsState extends State<Camera> {
       roughness: roughness,
       reflectance: reflectance,
     );
-    sphereNode?.shape?.materials.value = [material];
+    gridNode?.shape?.materials.value = [material];
   }
 
   @override
