@@ -16,6 +16,34 @@ class Deplacement extends StatefulWidget {
 }
 
 class _DeplacementState extends State<Deplacement> {
+  late AccelerometerEvent eventAcc;
+  late GyroscopeEvent eventGyr;
+  late StreamSubscription accStream;
+  late StreamSubscription gyrStream;
+  late Timer timer;
+  List<KeyPoint> keyPoints=[];
+  double threshold=0;
+  double prevAccMean=0;
+  double increase=0;
+  bool sensorIsActivated=false;
+
+  double rollAngleA=0;
+  double previousRollAngleA=0;
+  double rollAngleG=0;
+  double previousRollAngleG=0;
+
+  double pitchAngleA=0;
+  double previousPitchAngleA=0;
+  double pitchAngleG=0;
+  double previousPitchAngleG=0;
+
+  double eventThreshold=1;
+
+
+
+
+  int listCounter=0;
+
   Calibration c=Calibration(0, 0, 0);
   double calibStateX=0;
   double calibStateY=0;
@@ -26,6 +54,7 @@ class _DeplacementState extends State<Deplacement> {
   List<StreamSubscription<dynamic>> _streamSubscriptions =
   <StreamSubscription<dynamic>>[];
   late GyroscopeData g=GyroscopeData(0,0,0);
+  late AccelerometerData a=AccelerometerData(0, 0, 0, 0);
 
   int counterItem=0;
   int counterList=0;
@@ -98,6 +127,41 @@ class _DeplacementState extends State<Deplacement> {
   double positionX=0;
   double positionY=0;
   double positionZ=0;
+  double diffX=0;
+  double diffY=0;
+  double diffZ=0;
+  double firstX=0;
+  double firstY=0;
+  double firstZ=0;
+  double lastX=0;
+  double lastY=0;
+  double lastZ=0;
+
+
+  double countF=0;
+  double newAccelerationX=0;
+  double newAccelerationY=0;
+  double newAccelerationZ=0;
+
+  double oldAccelerationX=0;
+  double oldAccelerationY=0;
+  double oldAccelerationZ=0;
+
+  double newVelocityX=0;
+  double newVelocityY=0;
+  double newVelocityZ=0;
+
+  double oldVelocityX=0;
+  double oldVelocityY=0;
+  double oldVelocityZ=0;
+
+  double newPositionX=0;
+  double newPositionY=0;
+  double newPositionZ=0;
+
+  double oldPositionX=0;
+  double oldPositionY=0;
+  double oldPositionZ=0;
 
   @override
   void initState(){
@@ -110,6 +174,7 @@ class _DeplacementState extends State<Deplacement> {
   @override
   void dispose(){
     super.dispose();
+    //pauseTimer();
     for (final subscription in _streamSubscriptions) {
       subscription.cancel();
     }
@@ -130,10 +195,22 @@ class _DeplacementState extends State<Deplacement> {
                         children: <Widget>[
                           ElevatedButton(
                               onPressed: (){
+                                /*if(!sensorIsActivated){
+                                  startTimer();
+                                  setState(() {
+                                    sensorIsActivated=true;
+                                  });
+                                }
+                                else{
+                                  pauseTimer();
+                                  setState(() {
+                                    sensorIsActivated = false;
+                                  });
+                                }*/
                                 setState(()  {
                                   dataList=[];
-                                  setAccelerometerData();
                                   setGyroscopeData();
+                                  setAccelerometerData();
                                   //dataList= getDataList() ;
                                 });
 
@@ -146,6 +223,8 @@ class _DeplacementState extends State<Deplacement> {
                                   for (final subscription in _streamSubscriptions) {
                                     subscription.cancel();
                                   }
+                                  /*if(timer.isActive)
+                                  pauseTimer();*/
                                 });
 
                               },
@@ -153,12 +232,30 @@ class _DeplacementState extends State<Deplacement> {
                           ),
                           ElevatedButton(
                               onPressed: (){
+                                /*_streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
+                                  if(listCounter<300) {
+                                    calibStateX=calibStateX+event.x;
+                                    calibStateY=calibStateY+event.y;
+                                    calibStateZ=calibStateZ+event.z;
+                                    listCounter++;
+                                  }
+                                  else{
+
+                                    calibStateX=calibStateX/300;
+                                    calibStateY=calibStateY/300;
+                                    calibStateZ=calibStateZ/300;
+                                    print("calibStateX= ${math.sqrt(calibStateX*calibStateX+calibStateY*calibStateY+calibStateZ*calibStateZ)} ");
+                                    Calibration c=Calibration(calibStateX, calibStateY, calibStateZ);
+                                    print("calibration done");
+                                    _streamSubscriptions.first.pause();
+                                  }
+                                }));*/
                                 setState(()  {
                                   dataList=getAccelerometerData();
                                 });
 
                               },
-                              child: Text("See data ")
+                              child: Text("Calibrate ")
                           ),
                         ],
                       ),
@@ -226,6 +323,10 @@ class _DeplacementState extends State<Deplacement> {
     }
   }
 
+  /*List<AccelerometerData> getAccelerometerData() {
+    return dataList;
+  }*/
+
   List<AccelerometerData> getAccelerometerData() {
     return dataList;
   }
@@ -243,9 +344,12 @@ class _DeplacementState extends State<Deplacement> {
   }
 
    Future<void> setAccelerometerData() async {
-    int listCounter=0;
+    //int listCounter=0;
     DateTime lastUpdate= DateTime.fromMicrosecondsSinceEpoch(0);
+    /*_streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
+      a=AccelerometerData(event.x, event.y, event.z, 0);
 
+    }));*/
     _streamSubscriptions.add(
         userAccelerometerEvents.listen((UserAccelerometerEvent event) {
           DateTime now = DateTime.now();
@@ -253,7 +357,7 @@ class _DeplacementState extends State<Deplacement> {
               .difference(lastUpdate)
               .inMilliseconds / 1000 : 0.0;
           lastUpdate = now;
-          print("on tilt acceleration =${math.sqrt(event.x*event.x+event.y*event.y+event.z*event.z)}");
+         // print("on tilt acceleration =${math.sqrt(event.x*event.x+event.y*event.y+event.z*event.z)}");
 
           if(listCounter<300) {
             calibStateX=calibStateX+event.x;
@@ -268,6 +372,10 @@ class _DeplacementState extends State<Deplacement> {
           //if(counterItem<10){
 
             kalmanFilter(event.x, event.y,event.z,dt,c);
+            //linearAcceleration(event.x, event.y, event.z, dt, c);
+
+            //position(event.x, event.y, event.z, dt, c);
+
             //counterItem++;
           //}
             //updateDataList(event.x,event.y,event.z,dt);
@@ -277,22 +385,246 @@ class _DeplacementState extends State<Deplacement> {
 
   }
 
-   Calibration calibrate(){
-    //calibration state variabels
-    double calibStateX=0;
-    double calibStateY=0;
-    double calibStateZ=0;
-    for(int i=0;i<accelDataList.length;i++){
-        calibStateX = calibStateX + accelDataList[i].xAxis;
-        calibStateY = calibStateX + accelDataList[i].yAxis;
-        calibStateZ = calibStateX + accelDataList[i].zAxis;
+
+  void startTimer() {
+    // if the accelerometer subscription hasn't been created, go ahead and create it
+    if (_streamSubscriptions.length==1) {
+      _streamSubscriptions.add(accelerometerEvents.listen((AccelerometerEvent event) {
+        setState(() {
+          a=AccelerometerData(event.x, event.y, event.z, 0);
+        });
+      })
+      );
+      _streamSubscriptions.add(gyrStream = gyroscopeEvents.listen((GyroscopeEvent event) {
+        setState(() {
+          g=GyroscopeData(event.x, event.y, event.z);
+        });
+      })
+      );
+    } else {
+      // it has already ben created so just resume it
+      for (int i=0;i<_streamSubscriptions.length;i++) {
+        _streamSubscriptions[i].resume();
+      }
     }
-      calibStateX = calibStateX / 300;
-      calibStateY = calibStateY / 300;
-      calibStateZ = calibStateZ / 300;
-      print("calibration is done");
-      return Calibration(calibStateX, calibStateY, calibStateZ);
+      print("begin");
+      timer = Timer.periodic(Duration(milliseconds: 20), (_) {
+        // (20*500) = 1000 milliseconds, equals 1 seconds.
+        // proccess the current event
+
+        //findKeyPoints(getAccelerometerData(), getGyroscopeData());
+      });
   }
+
+
+  void pauseTimer() {
+    // stop the timer and pause the accelerometer and gyro stream
+    timer.cancel();
+    for (final sub in _streamSubscriptions){
+      sub.pause();
+    }
+  }
+
+
+  void findKeyPoints(AccelerometerData accEvent,GyroscopeData gyrEvent){
+    double stability=stabilityScore(accEvent,gyrEvent);
+    print("stability = $stability");
+    print("threshold = $threshold");
+    if(stability<=threshold){
+        KeyPoint keyPoint= new KeyPoint(stability,math.sqrt(accEvent.xAxis*accEvent.xAxis+accEvent.yAxis*accEvent.yAxis+accEvent.zAxis*accEvent.zAxis));
+        keyPoints.add(keyPoint);
+        print("point added : the new point's stability is ${keyPoint.stability} , gravity ${keyPoint.gravity}");
+        threshold=stability;
+        increase=stability*0.01;
+      }
+      else{
+        threshold=threshold+increase;
+      }
+  }
+
+
+  double stabilityScore(AccelerometerData accEvent,GyroscopeData gyrEvent){
+
+    double actualAccMean=math.sqrt(accEvent.xAxis*accEvent.xAxis+accEvent.yAxis*accEvent.yAxis+accEvent.zAxis*accEvent.zAxis);//actual accelerometer mean
+    double diffMean=actualAccMean-prevAccMean;//Difference in mean of accelerometer event
+    double devMeas = actualAccMean;
+    if(listCounter==300) {
+      devMeas = actualAccMean - math.sqrt(
+          calibStateX * calibStateX + calibStateY * calibStateY +
+              calibStateZ * calibStateZ); //measurement deviation
+    }
+    double magGyr=math.sqrt(gyrEvent.xAxis*gyrEvent.xAxis+gyrEvent.yAxis*gyrEvent.yAxis+gyrEvent.zAxis*gyrEvent.zAxis);//magnitude of gyroscope event
+    print("devMeas $devMeas");
+    print("diffMean $devMeas");
+    print("magGyr $magGyr");
+
+    double stability=0.1*devMeas+0.45*diffMean+0.45*magGyr;//stability
+    prevAccMean=actualAccMean;//previous accelerometer mean
+
+    return stability.abs();
+
+  }
+
+  void validateKeyPoints(AccelerometerEvent accEvent,GyroscopeEvent gyrEvent, List<KeyPoint> keyPoints){
+    double eventRange=findPeakLimits(accEvent,keyPoints);
+  }
+  double findPeakLimits(AccelerometerEvent accEvent,List<KeyPoint> keyPoints){
+    return 0;
+  }
+
+
+  double getTilt(AccelerometerEvent accEvent1,AccelerometerEvent accEvent2){
+      double cosAngle=(accEvent1.x*accEvent2.x+accEvent1.y*accEvent2.y+accEvent1.z*accEvent2.z)
+          /(math.sqrt(accEvent1.x*accEvent1.x+accEvent1.y*accEvent1.y+accEvent1.z+accEvent1.z)
+              +math.sqrt(accEvent2.x*accEvent2.x+accEvent2.y*accEvent2.y+accEvent2.z+accEvent2.z));
+    return math.acos(cosAngle);
+  }
+
+  double getPitchG(GyroscopeEvent gyrEvent, double dt){
+      previousPitchAngleG=pitchAngleG;
+      pitchAngleG+=gyrEvent.x*dt;
+
+    return pitchAngleG*(180/math.pi);
+  }
+
+  double getRollG(GyroscopeEvent gyrEvent, double dt){
+    previousRollAngleG=rollAngleG;
+    rollAngleG+=gyrEvent.z*dt;
+
+    return rollAngleG*(180/math.pi);
+  }
+
+  double getPitchA(AccelerometerEvent accEvent){
+    previousPitchAngleA=pitchAngleA;
+    pitchAngleA=math.atan2(accEvent.x, accEvent.y);
+
+    return pitchAngleA;
+  }
+  double getRollA(AccelerometerEvent accEvent){
+    previousRollAngleA=rollAngleA;
+    rollAngleA=math.atan2(-accEvent.z, math.sqrt(accEvent.y*accEvent.y+accEvent.x*accEvent.x));
+
+    return rollAngleA;
+  }
+
+
+  void orientationChange(AccelerometerEvent accEvent ,GyroscopeEvent gyrEvent){
+    double magnitude=math.sqrt(gyrEvent.x*gyrEvent.x+gyrEvent.y*gyrEvent.y+gyrEvent.z*gyrEvent.z);
+    if(magnitude>eventThreshold){
+      double p=(1-0.01)*getPitchG(gyrEvent,0.01)+0.01*getPitchA(accEvent);
+      double r=(1-0.01)*getRollG(gyrEvent,0.01)+0.01*getRollA(accEvent);
+      double previousP=(1-0.01)*previousPitchAngleG+0.01*previousPitchAngleA;
+      double previousR=(1-0.01)*previousRollAngleG+0.01*previousRollAngleA;
+      double diffPitch=(p-previousP).abs();
+      double diffRoll=(r-previousR).abs();
+      if(diffPitch+diffRoll>10){
+        
+      }
+    }
+  }
+
+
+  void trackOrientation(){
+
+  }
+  void position(double x,double y,double z,double t, Calibration c){
+
+
+
+    if(countF<64) {
+      newAccelerationX = newAccelerationX + x;
+      newAccelerationY = newAccelerationY + y;
+      newAccelerationZ = newAccelerationZ + z;
+      countF++;
+    }
+    else{
+
+    newAccelerationX=newAccelerationX/64;
+    newAccelerationY=newAccelerationY/64;
+    newAccelerationZ=newAccelerationZ/64;
+
+    newAccelerationX=newAccelerationX-c.calibrationX;
+    newAccelerationY=newAccelerationY-c.calibrationY;
+    newAccelerationZ=newAccelerationZ-c.calibrationZ;
+
+    if(newAccelerationX>0.05&&newAccelerationX<-0.05){
+      newAccelerationX=0;
+    }
+    if(newAccelerationY>0.05&&newAccelerationY<-0.05){
+      newAccelerationY=0;
+    }
+    if(newAccelerationZ>0.05&&newAccelerationZ<-0.05){
+      newAccelerationZ=0;
+    }
+    newVelocityX=oldVelocityX+oldAccelerationX+(newAccelerationX-oldAccelerationX)/2;
+    newPositionX=oldPositionX+oldVelocityX+(newVelocityX-oldVelocityX)/2;
+
+    newVelocityY=oldVelocityY+oldAccelerationY+(newAccelerationY-oldAccelerationY)/2;
+    newPositionY=oldPositionY+oldVelocityY+(newVelocityY-oldVelocityY)/2;
+
+    newVelocityZ=oldVelocityZ+oldAccelerationZ+(newAccelerationZ-oldAccelerationZ)/2;
+    newPositionZ=oldPositionZ+oldVelocityZ+(newVelocityZ-oldVelocityZ)/2;
+
+    oldAccelerationX=newAccelerationX;
+    oldAccelerationY=newAccelerationY;
+    oldAccelerationZ=newAccelerationZ;
+
+
+    oldVelocityX=newVelocityX;
+    oldVelocityY=newVelocityY;
+    oldVelocityZ=newVelocityZ;
+
+    oldPositionX=newPositionX;
+    oldPositionY=newPositionY;
+    oldPositionZ=newPositionZ;
+
+    countF=0;
+    dataList.add(AccelerometerData(oldAccelerationX, oldAccelerationY, oldAccelerationZ, counterList));
+    counterList++;
+    }
+
+  }
+
+  void linearAcceleration(double x1, double x2, double x3,double t,Calibration c){
+    double gravityX = x1;
+    double gravityY = x2;
+    double gravityZ = x3;
+
+    double angularVelocityX = getGyroscopeData().xAxis;
+    double angularVelocityY = getGyroscopeData().yAxis;
+    double angularVelocityZ = getGyroscopeData().zAxis;
+
+    double pitch = atan2(gravityY, sqrt(gravityX * gravityX + gravityZ * gravityZ));
+    double roll = atan2(-gravityX, gravityZ);
+    print("pitch= $pitch");
+    print("roll= $roll");
+
+    double specificForceX = gravityX * -sin(pitch);
+    double specificForceY = gravityY * sin(roll) * cos(pitch);
+    double specificForceZ = gravityZ * cos(roll) * cos(pitch);
+
+    double rotationMatrix0 = cos(roll) * cos(pitch);
+    double rotationMatrix1 = -sin(roll) * cos(pitch);
+    double rotationMatrix2 = sin(pitch);
+    double rotationMatrix3 = cos(roll) * sin(pitch) * sin(angularVelocityZ) + sin(roll) * cos(angularVelocityZ);
+    double rotationMatrix4 = cos(roll) * cos(angularVelocityZ) - sin(roll) * sin(pitch) * sin(angularVelocityZ);
+    double rotationMatrix5 = -cos(pitch) * sin(angularVelocityZ);
+    double rotationMatrix6 = cos(roll) * sin(pitch) * cos(angularVelocityZ) - sin(roll) * sin(angularVelocityZ);
+    double rotationMatrix7 = sin(roll) * sin(pitch) * cos(angularVelocityZ) + cos(roll) * sin(angularVelocityZ);
+    double rotationMatrix8 = cos(pitch) * cos(angularVelocityZ);
+
+    double linearAccelerationX =
+        rotationMatrix0 * specificForceX + rotationMatrix1 * specificForceY + rotationMatrix2 * specificForceZ;
+    double linearAccelerationY =
+        rotationMatrix3 * specificForceX + rotationMatrix4 * specificForceY + rotationMatrix5 * specificForceZ;
+    double linearAccelerationZ =
+        rotationMatrix6 * specificForceX + rotationMatrix7 * specificForceY + rotationMatrix8 * specificForceZ;
+
+    dataList.add(AccelerometerData(linearAccelerationX,linearAccelerationY,linearAccelerationZ,counterList));
+    counterList++;
+
+  }
+
 
   void kalmanFilter(double x1,double x2 , double x3,double t,Calibration c){
     //setting variabels
@@ -301,7 +633,10 @@ class _DeplacementState extends State<Deplacement> {
     double u1=x1;
     double u2=x2;
     double u3=x3;
-    if(u1<0.05&&u1>(-0.05)){
+    double g1=getGyroscopeData().xAxis;
+    double g2=getGyroscopeData().yAxis;
+    double g3=getGyroscopeData().zAxis;
+    /*if(u1<0.05&&u1>(-0.05)){
       u1=0;
     }
     if(u2<0.05&&u2>(-0.05)){
@@ -309,13 +644,17 @@ class _DeplacementState extends State<Deplacement> {
     }
     if(u3<0.05&&u3>(-0.05)){
       u3=0;
-    }
-    //print("input before acc x: $u1, y: $u2, z: $u3");
+    }*/
+    print("Acc x = $u1");
+    print("Acc y= $u2");
+    print("Acc z=$u3");
+    //print("input before gy x: $g1, y: $g2, z: $g3");
     //double x=0;
-    Array2d gyInput=Array2d([Array([getGyroscopeData().xAxis]),Array([getGyroscopeData().yAxis]),Array([getGyroscopeData().zAxis])]);
+    Array2d gyInput=Array2d([Array([g1]),Array([g2]),Array([g3])]);
     //Euler rates transformation matrix
     Array2d gyControlMatrix=Array2d([Array([1,math.sin(roll)*math.tan(pitch),math.cos(roll)*math.tan(pitch)]),
       Array([0,math.cos(roll),-math.sin(roll)])]);
+
     //input bias
 
      /*double u1_bias=u1-c.calibrationX/300;
@@ -334,7 +673,7 @@ class _DeplacementState extends State<Deplacement> {
 
     Array2d sumAcc=Array2d([Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
     //time delay
-    double dt=t;
+    double dt=0.01;
     //control vector
     Array2d u =Array2d([Array([u1]) ,Array([u2]),Array([u3]),Array([0]),Array([0]),Array([0]),Array([0]),Array([0])]);
     //State Transition Matrix
@@ -387,23 +726,14 @@ class _DeplacementState extends State<Deplacement> {
     /*print("gy input = $gyInput");
     print("gy control matrix $gyControlMatrix");*/
     //Array2d gy1=array2dMultiplyToScalar(gy,180/math.pi);
-    /*print("gy= $gy");
-    roll=gy.first.first;
-    pitch=gy.last.first;
-    print("roll= $roll");
-    print("pitch = $pitch ");*/
-    //print("gy1= $gy1");
+
+
 
     //Array2d q_estimate_curr=addition((mult(a,q_estimate)),ac);
-    //print("input acc x: $u1, y: $u2, z: $u3");
 
     Array2d q_estimate_curr1=addition(addition(addition((mult(a1,q_estimate1)),u),sum),ac1);
     //print("q_estimate_curr1 dx = ${q_estimate_curr1.first}");
-    /*zp.add(q_estimate_curr1.first);
-    zv.add(q_estimate_curr1.elementAt(1));
-    za.add(q_estimate_curr1.elementAt(2));
-    zroll.add(q_estimate_curr1.elementAt(3));
-    zpitch.add(q_estimate_curr1.last);*/
+
 
     //predict next covariance
     //p=addition(mult(mult(a,p),matrixTranspose(a)),ex);
@@ -416,22 +746,20 @@ class _DeplacementState extends State<Deplacement> {
     gy=mult(gyInput,gyControlMatrix);
     roll=roll+gy.elementAt(0).first*dt;
     pitch=pitch+gy.elementAt(1).first*dt;
+
+    //Gyroscope Data
+    print("pitch= $pitch");
+    print("roll= $roll");
+
     //update the state estimate
     //y=Array2d([q_estimate_curr.first,q_estimate_curr.elementAt(1),Array([u]),Array([roll]),Array([pitch])]);
     y1=Array2d([q_estimate_curr1.first,q_estimate_curr1.elementAt(1),q_estimate_curr1.elementAt(2),
       Array([u1]),Array([u2]),Array([u3]),Array([roll]),Array([pitch])]);
-    //print("y1 dx= ${y1.first} ");
-    //print("y1 ax= ${y1.elementAt(3)}");
-    //print("y1 roll= ${y1.elementAt(6)} pitch=${y1.last} ");
 
 
-    /*if(u!=uPrevious){
-      q_estimate=q_estimate_previous;
-      print("taw");
-    }*/
+
     //q_estimate=addition(q_estimate_curr,mult(k,(y-mult(h,q_estimate_curr))));
     q_estimate1=addition(q_estimate_curr1,mult(k1,(y1-mult(h1,q_estimate_curr1))));
-    //print("q_estimate1 dx =${q_estimate1.first}");
     //update covariance
     //p=mult((Array2d([Array([1,0,0,0,0]),Array([0,1,0,0,0]),Array([0,0,1,0,0]),Array([0,0,0,1,0]),Array([0,0,0,0,1])])-(mult(k,h))),p);
     p1=mult((Array2d([Array([1,0,0,0,0,0,0,0]),Array([0,1,0,0,0,0,0,0]),Array([0,0,1,0,0,0,0,0]),Array([0,0,0,1,0,0,0,0]),
@@ -457,15 +785,68 @@ class _DeplacementState extends State<Deplacement> {
     counterList++;
     q_estimate_previous=q_estimate;
     double last=d_estimate_az.elementAt(d_estimate_az.row-1).last;
+
+    /*if(u1<0&&u1Previous<0&&firstX==0){
+      firstX=d_estimate_ax.elementAt(counterList-1).first;
+    }
+    if(u1>0 && u1Previous<0&&firstX!=0){
+      lastX=d_estimate_ax.elementAt(counterList-1).first;
+    }
+
+    if(u1>0&&u1Previous>0&&firstX==0){
+      firstX=d_estimate_ax.elementAt(counterList-1).first;
+    }
+    if(u1<0 && u1Previous>0&&firstX!=0){
+      lastX=d_estimate_ax.elementAt(counterList-1).first;
+    }*/
+
     if((u1<0 && u1Previous>0)||(u1>0 && u1Previous<0)){
-      positionX=positionX+d_estimate_ax.elementAt(counterList-1).first;
+      positionX=positionX+d_estimate_ax.last.first;
+      /*firstX=0;
+      lastX=0;*/
       //print("positionX= $positionX");
     }
-    if((u2<0 && u2Previous>0)||(u2>0 && u2Previous<0)){
-      positionY=positionY+d_estimate_ay.elementAt(counterList-1).first;
+    /*if(u2<0&&u2Previous<0&&firstY==0){
+      firstY=d_estimate_ay.elementAt(counterList-1).first;
     }
+    if(u2>0 && u2Previous<0&&firstY!=0){
+      lastY=d_estimate_ay.elementAt(counterList-1).first;
+    }
+
+    if(u2>0&&u2Previous>0&&firstY==0){
+      firstY=d_estimate_ay.elementAt(counterList-1).first;
+    }
+    if(u2<0 && u2Previous>0&&firstY!=0){
+      lastY=d_estimate_ay.elementAt(counterList-1).first;
+    }*/
+
+
+    if((u2<0 && u2Previous>0)||(u2>0 && u2Previous<0)){
+      positionY=positionY+d_estimate_ay.last.first;
+      /*firstY=0;
+      lastY=0;*/
+    }
+
+    //il y a qlq chose qui cloche
+    /*if(u3<0&&u3Previous<0&&firstZ==0){
+      firstZ=d_estimate_az.elementAt(counterList-1).first;
+    }
+    if(u3>0 && u3Previous<0&&firstZ!=0){
+      lastZ=d_estimate_az.elementAt(counterList-1).first;
+    }
+
+
+    if(u3>0&&u3Previous>0&&firstZ==0){
+      firstZ=d_estimate_az.elementAt(counterList-1).first;
+    }
+    if(u3<0 && u3Previous>0&&firstZ!=0){
+      lastZ=d_estimate_az.elementAt(counterList-1).first;
+    }*/
+
     if((u3<0 && u3Previous>0)||(u3>0 && u3Previous<0)){
-      positionZ=positionZ+d_estimate_az.elementAt(counterList-1).first;
+      positionZ=positionZ+d_estimate_az.last.first;
+      /*firstZ=0;
+      lastZ=0;*/
     }
     //storing last acceleration variables
     u1Previous=u1;
@@ -476,9 +857,9 @@ class _DeplacementState extends State<Deplacement> {
     //dataList.add(AccelerometerData(positionX, positionY, positionZ, counterList));
     //print("roll and pitch = ${roll_estimate_az.last}    ${pitch_estimate_az.last}");
     dataList.add(AccelerometerData(
-        d_estimate_ax.elementAt(counterList-1).first*math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first),
-        d_estimate_ay.elementAt(counterList-1).first*math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first),
-        d_estimate_az.elementAt(counterList-1).first*math.sin(pitch_estimate_az.elementAt(counterList-1).first), counterList));
+        d_estimate_ax.elementAt(counterList-1).first/**math.cos(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
+        d_estimate_ay.elementAt(counterList-1).first/**math.sin(roll_estimate_az.elementAt(counterList-1).first) * math.cos(pitch_estimate_az.elementAt(counterList-1).first)*/,
+        d_estimate_az.elementAt(counterList-1).first/**math.sin(pitch_estimate_az.elementAt(counterList-1).first)*/, counterList));
     //dataList.add(AccelerometerData(d_estimate_az.elementAt(counterList-1).first, v_estimate_az.elementAt(counterList-1).first, a_estimate_az.elementAt(counterList-1).first, counterList));
 
   }
@@ -548,6 +929,11 @@ class GyroscopeData{
   double yAxis;
   double zAxis;
   GyroscopeData(this.xAxis,this.yAxis,this.zAxis);
+}
+class KeyPoint{
+  double stability;
+  double gravity;
+  KeyPoint(this.stability,this.gravity);
 }
 
 

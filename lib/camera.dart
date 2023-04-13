@@ -194,28 +194,36 @@ class _RuntimeMaterialsState extends State<Camera> {
           },
           child: Text("End ")
       ),
+          ElevatedButton(
+              onPressed: (){
+                setState(()  {
+                  double m=0.001;
+                  double x=0;
+                  double y=0;
+                  double z=-1;
+                  for(int i =0;i<4;i++){
+                    for (int j=0;j<4;j++){
+                      _addHeatMap(x, z+(m/2), y, m);
+                      m=m+0.01;
+                      x+=0.21;
+                    }
+                    x=0;
+                    y+=0.21;
+                  }
+                });
+
+              },
+              child: Text("Show heat map ")
+          ),
       ElevatedButton(
           onPressed: (){
             setState(()  {
               dataList=getAccelerometerData();
               for(int i=0;i<dataList.length;i++) {
-                if(i%30==0) {
+                if(i%50==0) {
                   _addSphere(dataList[i].xAxis,dataList[i].yAxis,dataList[i].zAxis);
                 }
               }
-              /*double m=0.001;
-              double x=0;
-              double y=0;
-              double z=-1;
-              for(int i =0;i<4;i++){
-                for (int j=0;j<4;j++){
-                  _addHeatMap(x, z+(m/2), y, m);
-                  m=m+0.01;
-                  x+=0.21;
-                }
-                x=0;
-                y+=0.21;
-              }*/
               });
 
           },
@@ -335,7 +343,7 @@ class _RuntimeMaterialsState extends State<Camera> {
       );
       gridNode = ArCoreNode(
           shape:cube,
-          position:vector.Vector3(x,y,z)
+          position:vector.Vector3(x*10,y*10,z*10)
       );
       arCoreController?.addArCoreNode(gridNode!);
 
